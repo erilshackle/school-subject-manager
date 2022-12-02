@@ -1,4 +1,4 @@
-# Student Subjects Manager
+# Student Subjects Manager (Student Discipline Manager)
 
-- school subjects manager's 1.0 source code
-- student subjects manager 2.5 source code
+- student subjects manager v2.5 source code
+- December 2nd 2022
