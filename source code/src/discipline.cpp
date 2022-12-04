@@ -12,14 +12,15 @@ Discipline::Discipline(class Course* course_s, string discipline_title, string p
     make_uppercase(discipline_title);
     convertToCase(professor, capital);
 
+    this->_course = course_s;
     strcpy(this->_title,discipline_title.c_str());
     strcpy(this->_professor, professor.c_str());
     strcpy(this->_description, "");
 //    strcpy(this->_evalfile, "");
     this->_semester = semester <= 0 ? 1 : semester;
     // defaults;
-    _completed_ = __archived_ = false;
-    _course = course_s;
+    _completed_ = false;
+    __archived_ = false;
     _scheduling = 0;
     _num_of_evals = 0;
     _finalGrade = 0.0;
@@ -52,14 +53,18 @@ std::string Discipline::getProfessor()
 {
     return _professor;
 }
-bool Discipline::isCompleted(bool checkif)
+bool Discipline::isCompleted()
 {
-    _completed_ = (_evals->isFullScheduled()
-                && (_evals->getNumOfEvals()==_evals->getNumOfEvalsDone()) );
+    _completed_ = (_evals->isFullScheduled() && isEvalsAllDone());
+//    __archived_ = _course->isArchivedDiscipline(this);
     return _completed_;
 }
-bool Discipline::isArchived(void)
+bool Discipline::isArchived(bool refresh)
 {
+    //! CRASH
+    if(refresh){
+        __archived_ = _course->isArchivedDiscipline(this);
+    }
     return __archived_;
 }
 unsigned int Discipline::getSemester()
@@ -73,9 +78,9 @@ float Discipline::getFinalGradeRequired(void)
 std::string Discipline::getStatus()
 {
     string status = "0%";
-    float grade = getEvalsGradeAverage();
+    float grade = getEvalsGradeAverage(true);
     int progress = 0;
-    if(!isCompleted(true)){
+    if(!isCompleted()){
         if(getNumOfEvals() != 0){   // division by zero
 //         progress = (getNumOfEvalsDone()/getNumOfEvals()) * getEvalsStatus();
          progress = ((getNumOfEvalsDone()/getNumOfEvals())*50) + (getEvalsStatus()/2);
@@ -92,32 +97,34 @@ std::string Discipline::getStatus()
 std::string Discipline::getStatusProgress()
 {
     string  status;
-    bool    finished = (isEvalsAllDone() && getEvalsStatus() == 100);
-    double estimatedGrade = ( getEvalsGradeAverage(true) * ( 1 + (getEvalsStatus()/100.0) ) );
+    bool    finished = (getEvalsStatus() == 100);
+    float perc_left = (100-getEvalsStatus()), neededGrade=0; // (req-NF)/PERCLEFT;
+//    double estimatedGrade = ( getEvalsGradeAverage(true) * ( (getEvalsStatus()/100.0) ) );
 
-    if(finished && getEvalsGradeAverage() >= getFinalGradeRequired() )
-    {
-        status = "Passou!!";
+    if(perc_left != 0){
+        neededGrade = getFinalGradeRequired() - getEvalsGradeAverage();
+        neededGrade = neededGrade / perc_left;
     }
-    else if(finished && getEvalsGradeAverage() < getFinalGradeRequired() && (isExamDone() || !hasExamScheduled()))
-    {
-        status = "falhou!!";
-    }
-    else if(finished && getEvalsGradeAverage() < getFinalGradeRequired() && (!isExamDone() && hasExamScheduled()))
+
+    if(finished && getEvalsGradeAverage() < getFinalGradeRequired() && (!isExamDone() && hasExamScheduled()))
     {
         status = "exame!";
     }
-    else if(estimatedGrade >= getFinalGradeRequired())
+    else if(finished)
+    {
+        status = "completo!";
+    }
+    else if(neededGrade <= getFinalGradeRequired())
     {
         status = "bem";
     }
-    else if(estimatedGrade > 0.0000)
+    else if(neededGrade > getFinalGradeRequired())
     {
         status = "mal";
     }
     else
     {
-        status = "normal";
+        status = "em avaliacao";
     }
     // passed failed recourse doing well doing bad
     return status;
@@ -158,12 +165,11 @@ bool Discipline::setFinalGradeRequired(float min_required_grade)
 }
 bool Discipline::setSubjectArchived(Course* course) /** @return  mark this subject as archived */
 {
-    _checkset_completed();
-    if(!_completed_) return false;
-    if(_course == course && course!= NULL)
-        course->archive_discipline(this);
-    __archived_ = true;
-    return true;
+    if(!isCompleted()) return false;
+    else if(_course == course){
+        __archived_ = true;
+    }
+    return __archived_;
 }
 
 
@@ -203,10 +209,7 @@ int Discipline::getEvalsStatus()
 float Discipline::getEvalsGradeAverage(bool refresh)
 {
     if(refresh){
-        float _finalGrade = 0;
-        for(int i=0;i<getNumOfEvals();i++){
-            _finalGrade += evals(i)->getGradeWeighted();
-        }
+        _finalGrade = _evals->getGradeAverage();
     }
     return _finalGrade;
 }
@@ -249,7 +252,8 @@ void Discipline::printEvalsList()
     }
     else {
         for(int i = 0; i < getNumOfEvals(); i++){
-            Evaluation* eval = evals(i);
+            Evaluation* eval = _evals->getEval(i);
+
             // printing
             std::cout << std::left
                 << "   " << std::setw(17) << getEvalName(eval->getType())
@@ -302,7 +306,7 @@ void Discipline::printEvalsBrief()
 bool Discipline::scheduleEvaluation(const EvaluationType type, float perc, int date[3])
 {
     bool status = _evals->schedule(type,perc,date);
-    _evals->refresh__();
+    //_evals->refresh__();
     return status;
 }
 bool Discipline::removeScheduledEvaluation(int index)
@@ -320,7 +324,6 @@ bool Discipline::gradeEvaluation(int index, float grade)
 void Discipline::refresh(void)
 {
     this->_evals->refresh__();
-    this->_checkset_completed();
 }
 
 
@@ -428,14 +431,7 @@ std::string Discipline::getDatafileStr(void)
 
 
 // private methods
-void Discipline::_checkset_completed()
-{
-    //! verify if it is completed */
-    if(isEvalsFullScheduled() && isEvalsAllDone()){
-        _completed_ = true;
-    }
 
-}
 //void Discipline::_e_update_nextevent(int upt_index)
 //{
 //    _e_nexteval = -1;

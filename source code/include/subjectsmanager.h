@@ -19,6 +19,9 @@
 #define _WIN32_WINNT   0x0500
 #endif
 
+#include <shlobj.h>
+#pragma comment(lib, "shell32.lib")
+
 #include <student.h>
 #include <course.h>
 #include <discipline.h>
@@ -29,6 +32,7 @@
 #include "updater.html"
 #include "html_end.pp"
 // dirs
+#define SSM_FOLDER "SSManager\\"
 #define SSM_ROOT "ssmanager\\"
 #define SSM_USER "user\\"
 #define SSM_SUBJ "subjects\\"
@@ -89,6 +93,7 @@ void ssm_applyTheme(SSM* _ssm, int theme,  bool clearscreen = true);
 
 // Subjects Functions
 int subjectsListing(Course*, bool, int=0, int=17); /**@return num of disciplines */
+bool export_subject(Discipline*,INT=CSIDL_PERSONAL, bool=false);
 
 // functional
 bool DirectoryExists_W(LPCTSTR szPath);

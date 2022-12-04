@@ -35,10 +35,10 @@ typedef enum ExamEvaluationType exam_t;
 class Evaluation
 {
     public:
-        Evaluation(class Discipline*);
-        Evaluation(class Discipline*, EvaluationType, const unsigned int, int[3]={0} );
+        Evaluation(class Discipline*subject);
+        Evaluation(Discipline*sbj, EvaluationType, const unsigned int, int[3]={0} );
         //Evaluation(class Discipline*, ExamEvaluationType, int[3]);
-        Evaluation& operator=(const EvaluationType);
+        //Evaluation& operator=(const EvaluationType);
         bool hasSubjectOf(void);
 
         // methods
@@ -211,8 +211,8 @@ class EvalsManager
     public:
         EvalsManager(Discipline* sbj){
             _subject = sbj;
-            _num_of_evals = new int;
-            _scheduling = new int;
+            _num_of_evals = new int(0);
+            _scheduling = new int(0);
             for(int i=0;i<=MAXEVALUATION;i++){
                 _evals[i]=NULL;
             }
@@ -229,6 +229,15 @@ class EvalsManager
                 _evals[i]=NULL;
             _exam = NULL;
             _event_next = NULL;
+        }
+        float getGradeAverage(){
+            float avg = 0;
+            if(isExamScheduled()){
+                return _exam->getGrade();
+            }
+            for(int i=0;i<getNumOfEvals();i++)
+                avg += _evals[i]->getGradeWeighted();
+            return avg;
         }
         // eval
         Evaluation* getEval(int index){
@@ -353,10 +362,9 @@ class EvalsManager
                 return false;
             }
             Evaluation* new_eval = new Evaluation(_subject, type, perc, date);
-            if(new_eval){
-                _evals[*_num_of_evals] = new_eval;
-                *_scheduling += perc;
-            } else return false;
+            if(new_eval == NULL) return false;
+            _evals[(*_num_of_evals)] = new_eval;
+            *_scheduling += perc;
             *_num_of_evals += 1;
             return true;
         }
@@ -503,7 +511,7 @@ class EvalsManager
 
 
 //void printListOfAvaliableAssessmentsOf(Discipline&);
-bool validateDate(int*, bool = false);
+bool validateDate(int[3], bool = false);
 std::string getEvalName(EvaluationType, bool = false);
 std::string getTimeLeftTo(time_t);
 

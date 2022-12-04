@@ -10,6 +10,8 @@
 #define MAXCOURSESTR 40
 #define COURSEDATAFILE "course.ssm"
 
+static const std::string loaddscptype[2] = {"registered","archived"};
+
 // RETURN CONSTAT
 #define DISCIPLINE_NOT_ADDED -1
 #define LIMITSTUDENTREG 1
@@ -51,6 +53,7 @@ class Course
         bool hasDiscipline();
         // archived
         Discipline* getDisciplineArchived(const std::string);
+        bool isArchivedDiscipline(Discipline*);
         bool archive_discipline(std::string);
         bool archive_discipline(Discipline*);
         bool del_disciplineArchived(Discipline*);
@@ -97,9 +100,9 @@ class Course
         int _numOfDisciplines;
         int _numOfArchived;
 
-        Student *_student;
         DisciplineList *_disciplines = NULL;
-        DisciplineList *_archived_disciplines = NULL;
+        Student *_student;
+        DisciplineList *_archived_disciplines;
 
         // private methods
         bool _add_archived(class Discipline*);

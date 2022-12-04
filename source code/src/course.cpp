@@ -9,6 +9,7 @@
 #include <conio.h>
 
 
+
 using namespace std;
 
 Course::Course(std::string course, short int lective, typeSemester semester)
@@ -43,9 +44,10 @@ class Discipline* Course::discipline(const unsigned int at)
 {
     return _disciplines->at(at);
 }
-class Discipline* Course::archived(unsigned int at)
+class Discipline* Course::archived(unsigned int idx)
 {
-    return _archived_disciplines->at(at);
+    if(_archived_disciplines == NULL) return NULL;
+    return _archived_disciplines->at(idx);
 }
 
 // Student Methods
@@ -137,14 +139,26 @@ bool Course::hasDiscipline()
 // archived
 Discipline* Course::getDisciplineArchived(const std::string subject_title)
 {
+    if(_archived_disciplines == NULL) return NULL;
     string _search = subject_title;
     make_uppercase(_search);
-    SubjectNode* sbj = _archived_disciplines->node();
+    discipline_node* sbj = _archived_disciplines->node();
     while( sbj != NULL){
         if( sbj->discipline()->titles(_search) ) return sbj->discipline();
         sbj = sbj->next();
     }
     return NULL;
+}
+bool Course::isArchivedDiscipline(Discipline* subject)
+{
+    if(subject == NULL) return false;
+    if(_archived_disciplines == NULL) return false;
+    int i = 0;
+    while( this->archived(i) != NULL){
+        if(this->archived(i) == subject) return true;
+        i++;
+    }
+    return false;
 }
 bool Course::archive_discipline(std::string subject_title)
 {
@@ -154,21 +168,20 @@ bool Course::archive_discipline(std::string subject_title)
 }
 bool Course::archive_discipline(Discipline* subject)
 {
-    // is guaranteed that this subjects is not already in the archived list
-    if(subject == NULL || !subject->isArchived())
+    //! CRASHING, quick solution of trust
+    if(subject == NULL || subject->isArchived(false))
         return false;
-    // remove from registered
-    int idx = _disciplines->indexOf(subject);
-    if(idx == -1) return false;
-    Discipline* arch = NULL;
-    if(!_disciplines->remove(idx, &arch)) return false;
+    int id = _disciplines->indexOf(subject);
+    if(id == -1) return false;
+    Discipline* a = NULL;
+    if(!_disciplines->remove(id, &a)) return false;
     _numOfDisciplines--;
+    a->setSubjectArchived(this);
     // add to archived
     return _add_archived(subject);
 }
 bool /*private*/ Course::_add_archived(class Discipline* arch)
 {
-    if(!arch->isArchived()) return false;
     _archived_disciplines->insert(&arch, 0);
     _numOfArchived++;
     return true;
@@ -443,29 +456,33 @@ bool Course::SaveDisciplines(void)
 }
 bool Course::LoadDisciplines(void)
 {
-    string line="";
+    string line="", loadtype;
     char fpath[50];
     sprintf(fpath, "%s\\%s",SSM_USER, _dcpdatalist);
 
     std::ifstream datalist(fpath, std::ios::in);
     if(!datalist.is_open()) return false;
 
+
     // load
     while(getline(datalist, line)){
         if(line.front() == '#') continue;
         else if(line.front() == '@'){
                 line.erase(line.begin());
-                cout << "loading " << line << endl;
+                loadtype = line;
+                cout << "loading " << loadtype << endl;
                 continue;
         }
         Discipline* dscp = new Discipline(NULL,"???","???",1);
         if(!dscp->LoadData(line)){
             continue;
         }
-        if(dscp->isArchived()){
-            this->_add_archived(dscp);
-        } else {
+        // load type
+        if(loadtype == loaddscptype[0] /* registered */){
             this->add_discipline(dscp);
+        } else
+        if(loadtype == loaddscptype[1] /* archived */ ){
+            this->_add_archived(dscp);
         }
         perror(line.c_str());
     }
@@ -496,13 +513,13 @@ void Course::_updateDisciplineListFile()
     std::ofstream dcplist(fname, std::ios::trunc | std::ios::out);
     dcplist.flush();
     dcplist << "# Do not touch this file\n";
-    dcplist << "@Registered\n";
+    dcplist << "@" << loaddscptype[0] << "\n";
     sbj = _disciplines->node();
     while(sbj != NULL){
         dcplist << sbj->discipline()->getDatafileStr() << std::endl;
         sbj = sbj->next();
     }
-    dcplist << "@Archived\n";
+    dcplist << "@" << loaddscptype[1] << "\n";
     sbj = _archived_disciplines->node();
     while(sbj != NULL){
         dcplist << sbj->discipline()->getDatafileStr() << std::endl;
@@ -544,7 +561,7 @@ void printDiscilineListOf(Course& myCourse, bool _archived, int start_from, int 
             std::cout
             << "   "
             << std::setw(MAXTITLESTR) << d->getTitle() << " - "
-            << std::setw(MAXNAMESTR) << d->getProfessor() << "   (Media Final = " << std::right
+            << std::setw(MAXNAMESTR) << d->getProfessor() << " (Media Final = " << std::right
             << std::setprecision(1) << d->getEvalsGradeAverage() << ")"
             << std::left << std::endl;
     }

@@ -30,8 +30,6 @@ class Discipline
         bool DeleteData();
         std::string getDatafileStr(void);
 
-        void archiveme(){ this->_completed_ = true; this->__archived_ = true;}
-
         // getters
         bool titles(const std::string);
         std::string getTitle();
@@ -41,8 +39,8 @@ class Discipline
         std::string getStatus();
         std::string getStatusProgress();
         float getFinalGradeRequired(void);
-        bool isCompleted(bool=false);
-        bool isArchived(void);
+        bool isCompleted();
+        bool isArchived(bool=true);
 
         // setters
         bool setDescription(std::string);
@@ -108,7 +106,6 @@ class Discipline
         //std::vector<Evaluation*> _evals = new std::vector<Evaluation*>;
         class EvalsManager* _evals;
 
-        void _checkset_completed();
         bool _check_index(int index){return (index > -1 && index < getNumOfEvals());}
 
         // data management

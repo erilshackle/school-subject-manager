@@ -450,14 +450,14 @@ public:
         path.clear();
         path_vector.pop_back();
     }
-    std::string operator >> (std::string _entry)    // BC>>"string"  -> push new path
+    std::string operator >> (std::string _entry)    // BC>>"string"  -> push new path and return string
     {
         _entry = transformUppercase(_entry);
         path_vector.push_back(_entry);
         _makebread_();
         return path;
     }
-    std::string operator << (std::string _entry)    // BC<<"string" -> replace current path
+    std::string operator << (std::string _entry)    // BC<<"string" -> replace current path and return string
     {
         path.clear();
         path_vector.pop_back();

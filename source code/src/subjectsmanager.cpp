@@ -9,6 +9,8 @@
 #include <unistd.h>
 #endif // _WIN32
 
+
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -258,6 +260,45 @@ int subjectsListing(Course* course, bool archived, int start, int stop)
     printDiscilineListOf(*course, archived, _start, stop);
     if(start != 0) return elements+1;
     else return elements;
+}
+bool export_subject(Discipline* subject, int directory, bool is_archived)
+{
+    if(subject == NULL) return false;
+    std::ofstream file;
+    CHAR savefolder[MAX_PATH];
+    HRESULT result = SHGetFolderPath(NULL, directory, NULL, 0, savefolder);
+    std::string save_path = savefolder;
+    save_path += "\\";
+    save_path += SSM_FOLDER;
+    mkdir(save_path.c_str());
+    save_path += subject->getTitle()+".txt";
+    puts(save_path.c_str());
+    file.open(save_path, std::ios::trunc|std::ios::out);
+    if(!file.is_open()) return false;
+
+    file << std::left << std::setprecision(1)
+        <<std::setw(15) << "Disciplina:" << subject->getTitle() << " (" << subject->getDescription() << ")\n"
+        <<std::setw(15) << "Professor:" << subject->getProfessor() << '\n'
+        <<std::setw(15) << "Semestre:" << subject->getSemester() << "˚ semestre do curso" << '\n'
+        <<std::setw(15) << "Avaliacoes: " << std::setw(4) <<subject->getNumOfEvals()
+    <<std::endl;
+    file << "------------------------------------------------------------\n";
+    for(int i = 0; i < subject->getNumOfEvals(); i++){
+        Evaluation* eval = subject->evals(i);
+        file << std::left << std::fixed
+             << " "<< std::setw(17) << getEvalName(eval->getType())
+             << " >> " << std::setw(14) << eval->getDateString()
+             << "  (" << eval->getPercentageInt() << "%) " << std::setw(3);
+        file << "nota " << std::right << std::setw(5) << std::setprecision(2) <<std::fixed << eval->getGrade()
+        << std::endl;
+    }
+    file << "------------------------------------------------------------\n";
+    file << std::left << std::setprecision(1) << " Nota Final: "
+         << std::setw(25) << subject->getEvalsGradeAverage()
+         << " Estado: " << subject->getStatus() << '\n';
+    file << "============================================================\n";
+    file.close();
+    return true;
 }
 
 // functionals
