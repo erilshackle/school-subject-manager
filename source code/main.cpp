@@ -52,7 +52,7 @@ void menu_settings(class Student*);
 
 /// SUBMENU
 void submenu_course(class Course*);
-void submenu_subjectArchived(class Discipline*);
+void submenu_subjectArchived(Course*, class Discipline*);
 void submenu_manageSubjects(class Discipline*, Course&);
 void submenu_manageEvaluations(class Discipline*);
 void submenu_scheduleEvaluation(class Discipline*);
@@ -575,7 +575,8 @@ void menu_subjects(class Course* course)
                     //if((in_num-(it*3))>0) in_num-=(it*3);
                     //if((in_num-(it*3)) > 0)
 //                            cout << "   ... Listar Outros\n";
-                    if(course->hasDisciplineArchived()){cout << "   (X) Voltar";} else {
+                    if(course->hasDisciplineArchived()){cout << "   (X) Voltar";}
+                    else {
                         Cor>>ssm->themecolor(th_input);
                         cout << "\n\n"
                              << "# Uma disciplina pode ser arquivada quando 100% das \n"
@@ -589,7 +590,7 @@ void menu_subjects(class Course* course)
                     opt2 = optionSelector(5,in_num+1);
                     if(opt2 != ESCAPED){
                         in_dscp = course->archived(opt2);
-                        submenu_subjectArchived(in_dscp);
+                        submenu_subjectArchived(course, in_dscp);
                         SLEEP(500);
                     }
                     BC--;
@@ -819,8 +820,72 @@ void submenu_course(class Course* course)
         SLEEP(250);
     }
 }
-void submenu_subjectArchived(class Discipline* discipline)
+void submenu_subjectArchived(Course* course,class Discipline* archived)
 {
+    int opt, posini, opt2;
+    bool savevret;
+    CLEARSCREEN;
+    heading((BC>>archived->getTitle())); BC--;
+    cout << left << setprecision(1)
+        <<setw(15) << "Disciplina:" << archived->getTitle() << " (" << archived->getDescription() << ")\n"
+        <<setw(15) << "Professor:" << archived->getProfessor() << '\n'
+        <<setw(15) << "Semestre:" << archived->getSemester() << "* semestre do curso" << '\n'
+        <<setw(15) << "Avaliacoes: " << setw(4) <<archived->getNumOfEvals()
+    <<endl;
+    fillch('-');
+    for(int i = 0; i < archived->getNumOfEvals(); i++){
+        Evaluation* eval = archived->evals(i);
+        std::cout << std::left
+            << " "<< std::setw(17) << getEvalName(eval->getType())
+            << " >> " << std::setw(14) << eval->getDateString()
+            << "  (" << eval->getPercentageInt() << "%) " << std::setw(3);
+            std::cout << "nota " << std::right << std::setw(5) << std::setprecision(2) << eval->getGrade()
+        << endl;
+    }
+    fillch('-');
+    cout << left << std::setprecision(1) << " Nota Final: "
+         << setw(25) << archived->getEvalsGradeAverage()
+         << " Estado: " << archived->getStatus() << '\n';
+    fillch('=');
+    posini = 10 + archived->getNumOfEvals();
+
+    cout << SELECTABLE << "(X) Voltar\n";
+    cout << SELECTABLE << "Exportar\n";
+    cout << SELECTABLE << "Eliminar\n";
+    opt = optionSelector(posini,3,false);
+
+    switch(opt){
+        case 1:
+            savevret = export_subject(archived);
+            if(savevret){
+                alertOnSuccess("Disciplina Exportado com sucesso");
+            } else {
+                alertOnError("Nao foi possivel exportar a disciplina");
+            }
+            break;
+        case 2:
+            clearScreen_(posini);
+            printcolor("Pretende Eliminar esta disciplina arquivada? \n", ssm->themecolor(th_warn));
+            cout << SELECTABLE << "SIM  (eliminar)\n";
+            cout << SELECTABLE << "SIM  (Exportar e eliminar)\n";
+            cout << SELECTABLE << "NAO  (cancelar)\n";
+            opt2 = optionSelector(posini+1,3);
+            if(opt2 != ESCAPED){
+                if(opt2 == 1){
+                    if(export_subject(archived)){
+                        alertOnSuccess("* Disciplina Exportado com sucesso\n");
+                    }
+                }
+                if(course->del_disciplineArchived(archived)){
+                    alertOnSuccess("* Disciplina Eliminado com sucesso!");
+                } else
+                    alertOnError("Erro: Nao pode ser eliminado");
+            } else {
+                alertOnWarring("Cancelado!");
+            }
+            break;
+    }
+    PAUSESCREEN;
     return;
 }
 void submenu_manageSubjects(class Discipline* discipline, Course& course)
@@ -828,10 +893,11 @@ void submenu_manageSubjects(class Discipline* discipline, Course& course)
     int opt, opt2, in_num;
     float in_real;
     string in_str;
-    bool savedata = false;
+    bool savedata = false, is_fullscheduled;
     discipline->getEvalsGradeAverage();
     BC >> discipline->getTitle();
     do{
+        is_fullscheduled = discipline->isEvalsFullScheduled();
         CLEARSCREEN;
         heading(BC());
         cout.clear();
@@ -843,7 +909,7 @@ void submenu_manageSubjects(class Discipline* discipline, Course& course)
              <<setw(15) << "Avaliacoes: " << setw(4) <<discipline->getNumOfEvals()
                         << setw(30)<<right<< discipline->getNumOfEvals()<<left << "/   feitas"<<'\n'
              <<setw(15) << ( discipline->isCompleted() ? "Nota Final:" : "Nota Actual:")
-                        << setw(4)<< discipline->getEvalsGradeAverage()
+                        << setw(4)<< discipline->getEvalsGradeAverage(true)
                         << setw(30)<<right<< discipline->getFinalGradeRequired()<<left <<"/ condicao"<< '\n'
              <<setw(15) << "Estado:" << discipline->getStatus()
         <<endl;
@@ -855,13 +921,13 @@ void submenu_manageSubjects(class Discipline* discipline, Course& course)
              << SELECTABLE << "Alterar Nome do Professor" << '\n'
              << SELECTABLE << "Alterar Semestre da Disciplina" << '\n'
              << SELECTABLE << "Definir Requisitos para aprovacao" << '\n'
-             << SELECTABLE << ssm->themecolor(th_warn) << ( discipline->isEvalsFullScheduled() ?
-                            "Arquivar esta disciplina (marcar como concluida)\n" : "\r") >> Color;
+             << SELECTABLE << ssm->themecolor(th_warn) << ( is_fullscheduled ?
+                            "Arquivar esta disciplina (marcar como concluida) (ERRO)\n" : "\r") >> Color;
         cout << SELECTABLE << "(X) "<<(savedata?"Salvar & ":"") <<"Voltar";
 
         cout << "\n" << "";
 
-        opt = optionSelector(10,6+(int)(discipline->isEvalsFullScheduled()) );
+        opt = optionSelector(10,6+(int)(is_fullscheduled) );
 
         switch(opt){
             case 0:{     // Gerir Avaliacoes
@@ -955,16 +1021,16 @@ void submenu_manageSubjects(class Discipline* discipline, Course& course)
                     <<endl;
                 ssm_applyTheme(ssm,th_secnd, false);
                 clearScreen_(15);
-                printcolor("[?] Voce esta pronto para arquivar esta disciplina?", ssm->themecolor(th_hint));
+                printcolor("[?] Voce confirma que quer arquivar esta disciplina?", ssm->themecolor(th_hint));
                 cout << "\n"
                     << "    (X) NAO\n"
-                    << "    (!) CONTINUAR (Arquivar)";
+                    << "    (!) SIM (Arquivar)";
                 opt2 = optionSelector(16, 2);
                 // alert option box
                 if(opt2 != ESCAPED){
                     cout << "Cancelado!";
                     break;
-                }
+                } else
                 if(course.archive_discipline(discipline)){
                     alertOnError("Feito! Disciplina arquvada com sucesso");
                     savedata = true;
@@ -999,11 +1065,11 @@ void submenu_manageEvaluations(class Discipline* discipline)
     int efforts=0;
     bool savedata = false;
     float req, nf;
-    int per_;
+    int perc_left;
     do{
         req = discipline->getFinalGradeRequired(),
         nf = discipline->getEvalsGradeAverage(true);
-        per_ = discipline->getEvalsStatus();
+        perc_left = 100-discipline->getEvalsStatus();
         CLEARSCREEN;
         heading(BC());
     // show table of evaluation overview
@@ -1108,18 +1174,14 @@ void submenu_manageEvaluations(class Discipline* discipline)
         }
         case 2:{     // Detalhes
 
-            //(10-(7*0.5))/0.5;
-//            if(per_ != 0)
-//                securityGrade = (req - nf)/((100-per_)/100.0);
-
             clearScreen_(6);
             cout << ssm->themecolor(th_hint)
                  << "Nota Final Atual:     " << discipline->getEvalsGradeAverage() << '\n'
                  << "Nota Final Requerida: " << discipline->getFinalGradeRequired() << '\n'
                  << "Estado de Progresso:  " << discipline->getStatusProgress() << '\n'
                  << "Estado da Disciplina: " << discipline->getStatus() << '\n'
-                 << "Recomendacoes para passar" << '\n'
-                 << "* Nao tenha uma nota inferior a " << setprecision(1) << securityGrade << " na proxima avaliacao."
+//                 << "Recomendacoes para passar" << '\n'
+//                 << "* Nao tenha uma nota inferior a " << setprecision(1) << securityGrade << " na proxima avaliacao."
                  >> Color;
             PAUSESCREEN;
             break;
