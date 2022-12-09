@@ -7,26 +7,26 @@
 #include <ctime>
 #include <utils.h>
 
-Evaluation::Evaluation(class Discipline* sbj_of)
+Evaluation::Evaluation(class Discipline* subject)
 {
-    _subjects_of = sbj_of;
+    _subjects_of = subject;
     _type = EvaluationType::Generic;
     _grade = _requiredGrade = 0.0;
     _percentage = 0;
     _done = false;
     strcpy(_description, "");
-    for(int i = 0; i < 3; i++)
-        _date[i] = 0;
+    for(int i = 0; i < 3; i++) _date[i] = 0;
     // code
     srand(time(NULL));
     int randcode = 1000+rand()%9999L;
     sprintf(__datacode, "%04d", randcode);
 }
 
-Evaluation::Evaluation(class Discipline* sbj_of, EvaluationType type_of_assessment, const unsigned int percentage, int date[3])
+Evaluation::Evaluation(Discipline* sbj, EvaluationType type_of_assessment, const unsigned int percentage, int date[3])
 {
-    //Evaluation(sbj_of);
-    _subjects_of = sbj_of;
+//     Evaluation(sbj);
+    _subjects_of = sbj;
+    for(int i = 0; i < 3; i++) _date[i] = 0;
     _type = type_of_assessment;
     if(percentage > 0 && percentage <= 100)
         _percentage = percentage;
@@ -41,13 +41,6 @@ Evaluation::Evaluation(class Discipline* sbj_of, EvaluationType type_of_assessme
     srand(time(NULL));
     int randcode = 1000+rand()%9999L;
     sprintf(__datacode, "%04d", randcode);
-}
-
-
-Evaluation& Evaluation::operator=(const EvaluationType eval)
-{
-    this->setType(eval);
-    return *this;
 }
 
 bool Evaluation::hasSubjectOf()
@@ -69,8 +62,8 @@ std::string Evaluation::detail(bool with_status)
         status = "pendente";
     }
 
-    brief += getEvalName(getType()) + " (" + std::to_string(getPercentageInt())
-            + "%) " + getDateString() + ", " + status;
+    brief = getEvalName(getType()) + " (" + std::to_string(getPercentageInt())
+            + "%) " + getDateString(!with_status) + ", " + status;
     return brief;
 }
 
@@ -90,7 +83,7 @@ float Evaluation::getRequiredGrade()
 }
 float Evaluation::getPercentage()
 {
-    return (getPercentageInt()/100.0);
+    return (_percentage/100.0);
 }
 int Evaluation::getPercentageInt()
 {
@@ -102,7 +95,8 @@ float Evaluation::getGrade()
 }
 float Evaluation::getGradeWeighted()
 {
-    return getGrade()*getPercentage();
+    float gw = (getGrade()*getPercentageInt());
+    return gw/100.00;
 }
 tm Evaluation::getDate()
 {
@@ -123,7 +117,7 @@ double Evaluation::getDateTimeLeft()
     if((_date[0]*_date[1]*_date[2]) == 0) return 0;
     return difftime(getDateTime(), time(0));
 }
-std::string Evaluation::getDateString()
+std::string Evaluation::getDateString(bool year2digits)
 {
     std::string date = "--/--/--";
     if(validateDate(_date,false)){
@@ -131,7 +125,7 @@ std::string Evaluation::getDateString()
         tm tmdate = *localtime(&datetime);
         date = std::to_string(tmdate.tm_mday)+
         "/"  + std::to_string(tmdate.tm_mon+1)+
-        "/"  + std::to_string(tmdate.tm_year+1900);
+        "/"  + std::to_string(( year2digits ? (tmdate.tm_year+1900)%100 : tmdate.tm_year+1900) );
     }
     return date;
 }
@@ -323,7 +317,7 @@ std::string getEvalName(EvaluationType evalType, bool shortname)
     case EvaluationType::Assignment:
         return shortname ? "TRB" : "Trabalho";
     case EvaluationType::Project:
-        return shortname ? "PRJ" : "Projecto";
+        return shortname ? "PRJ" : "Projeto";
     case EvaluationType::Others:
         return shortname ? "OEA" : "Outros Elementos";
     case EvaluationType::Exam:
@@ -353,14 +347,13 @@ std::string getEvalName(EvaluationType evalType, bool shortname)
 //    return;
 //}
 
-bool validateDate(int* date, bool null)
+bool validateDate(int date[3], bool null)
 {
-    if(date == NULL) return null;
-    if ( *(date+0) < 0 || *(date+1) < 0 || *(date+2) < 0)
+    if ( date[0] < 0 || date[1] < 0 || date[2] < 0)
     {
         return false;
     }
-    if( (*(date+0) * *(date+1) * *(date+2)) == 0)
+    if( (date[0] * date[1] * date[2]) == 0)
     {
         return null;
     }

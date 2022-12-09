@@ -84,8 +84,10 @@ std::string Student::getBirthdate()
     strBD = d + "-" + m + "-" + y ;
     return strBD;
 }
-float Student::getFinalGrade()
+float Student::getFinalGrade(bool refresh)
 {
+    if(refresh)
+        _calc_finalGrade();
     return _finalGrade;
 }
 bool Student::isRegistered()
@@ -187,7 +189,7 @@ void Student::getSubjectsList(bool _archived)
 
 void Student::_calc_finalGrade(void)
 {
-
+    _finalGrade = _myCourse->getGradeMean();
 }
 
 // Save & Load Methods

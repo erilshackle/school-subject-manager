@@ -29,7 +29,7 @@ class Student
             std::string getCode();
             unsigned int getAge();
             std::string getBirthdate();
-            float getFinalGrade();
+            float getFinalGrade(bool=false);
             bool isRegistered();
 
         // setters

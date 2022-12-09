@@ -40,9 +40,11 @@ class Student& Course::student(void)
 {
     return *(this->_student);
 }
-class Discipline* Course::discipline(const unsigned int at)
+class Discipline* Course::discipline(const unsigned int idx)
 {
-    return _disciplines->at(at);
+    if(idx < 0 || idx > getNumDisciplines()) return NULL;
+    Discipline* d = _disciplines->at(idx);
+    return  d;
 }
 class Discipline* Course::archived(unsigned int idx)
 {
@@ -152,13 +154,7 @@ Discipline* Course::getDisciplineArchived(const std::string subject_title)
 bool Course::isArchivedDiscipline(Discipline* subject)
 {
     if(subject == NULL) return false;
-    if(_archived_disciplines == NULL) return false;
-    int i = 0;
-    while( this->archived(i) != NULL){
-        if(this->archived(i) == subject) return true;
-        i++;
-    }
-    return false;
+    return _archived_disciplines->exists(subject);
 }
 bool Course::archive_discipline(std::string subject_title)
 {
@@ -169,7 +165,7 @@ bool Course::archive_discipline(std::string subject_title)
 bool Course::archive_discipline(Discipline* subject)
 {
     //! CRASHING, quick solution of trust
-    if(subject == NULL || subject->isArchived(false))
+    if(subject == NULL || subject->isArchived())
         return false;
     int id = _disciplines->indexOf(subject);
     if(id == -1) return false;
@@ -332,7 +328,7 @@ double Course::getGradeMean()
     if(getNumDisciplines() == 0) return 0;
     double fmean = 0.00000;
     for(int i = 0; i < (signed)getNumDisciplines(); i++){
-        fmean += discipline(i)->getEvalsGradeAverage();
+        fmean += discipline(i)->getEvalsGradeAverage(true);
     }
     return fmean/(getNumDisciplines()*1.0);
 }
@@ -473,7 +469,7 @@ bool Course::LoadDisciplines(void)
                 cout << "loading " << loadtype << endl;
                 continue;
         }
-        Discipline* dscp = new Discipline(NULL,"???","???",1);
+        Discipline* dscp = new Discipline(this,"???","???",1);
         if(!dscp->LoadData(line)){
             continue;
         }

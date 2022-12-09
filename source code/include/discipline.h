@@ -169,9 +169,9 @@ struct discipline_node {
 typedef struct disciplines_linkedlist {
     private:
         struct discipline_node *_head;
-        unsigned int _size;
-        int _last_req = -1, _last_size = -1;
+        int _size = 0;
         struct discipline_node*  _last_node;
+        bool _last_changes;
 
         // methods
         bool _remove(int node_i, Discipline** dcp_ref){
@@ -198,43 +198,35 @@ typedef struct disciplines_linkedlist {
                 _size = 1;
             }
             _last_node = NULL;
-            _last_req = -1;
+            _last_changes = true;
         }
 
-        Discipline* at(unsigned int index){
-            if(_last_req > 2){
-                if( _last_size != (signed)_size){
-                    _last_size = (signed)_size;
-                    _last_node = _head;
-                    _last_req = 0;
-                }
-                else if((signed)index == _last_req){
+        Discipline* at(int index){
+            static int lastindex = -1;
+            if(!_last_changes && index == lastindex && _last_node != NULL){
+                return _last_node->discipline();
+            } else if(!_last_changes && index == (lastindex+1) && _last_node != NULL){
+                _last_node = _last_node->next();
+                lastindex += 1;
+                if(_last_node!=NULL){
                     return _last_node->discipline();
-                }
-                else if((signed)index == (_last_req+1)){
-                    _last_req++;
-                    _last_node = _last_node->next();
-                    return _last_node->discipline();
-                }
-                else if((signed)index == (_last_req-1)){
-                    _last_req--;
-                    _last_node = _last_node->prev();
-                    return _last_node->discipline();
+                } else {
+                    return NULL;
                 }
             }
-            struct discipline_node* node = _head;
-            unsigned int i = 0;
-            while(node != NULL){
-                if(i == index) break;
-                node = node->next();
-                i++;
+            struct discipline_node* sbjlist = _head;
+            int it = 0;
+            while(sbjlist != NULL){
+                if(index == it) break;
+                sbjlist = sbjlist->next();
+                it++;
             }
-            if(node == NULL) return NULL;
-            if(i > 2){
-                _last_node = node;
-                _last_req = i;
-            }
-            return node->discipline();
+            lastindex = index;
+            _last_node = sbjlist;
+            _last_changes = false;
+            if(sbjlist == NULL || !sbjlist->is_valid())
+                return NULL;
+            return sbjlist->discipline();
         }
         int indexOf(Discipline* discipline){
             struct discipline_node* node = this->node();
@@ -247,9 +239,10 @@ typedef struct disciplines_linkedlist {
             return i;
         }
         bool insert(Discipline** discipline, int at_index = -1){
-            if( (discipline == NULL) || (at_index < -1) || (at_index > (signed)_size) ){
+            if( (discipline == NULL) || (at_index < -1) || (at_index > _size) ){
                 return false;  // (signed) is important!                 ^^^^^^^
             }
+            _last_changes = true;
             struct discipline_node* it = this->node();
             struct discipline_node* newNode = new struct discipline_node(*discipline);
             if(_head == NULL){
@@ -257,7 +250,7 @@ typedef struct disciplines_linkedlist {
             } else if(at_index == 0){
                 if(!it->push_over(&newNode)) return false;
                 _head = newNode;
-            } else if(at_index == -1 || (at_index == (signed)_size)){
+            } else if(at_index == -1 || (at_index == _size)){
                 while(it->hasNext()) it = it->next();
                 if(!it->push(&newNode)) return false;
             } else {
@@ -273,7 +266,8 @@ typedef struct disciplines_linkedlist {
             return true;
         }
         bool remove(const int index){
-            if(index >= (signed)_size || index < 0) return false;
+            if(index >= _size || index < 0) return false;
+            _last_changes = true;
             bool del = false;
             Discipline* _ref = NULL;
             del = _remove(index, &_ref);
@@ -281,7 +275,8 @@ typedef struct disciplines_linkedlist {
             return del;
         }
         bool remove(const int index, Discipline** save_dcp_ref){
-            if(index >= (signed)_size || index < 0) return false;
+            if(index >= _size || index < 0) return false;
+            _last_changes = true;
             bool del = false;
             del = _remove(index, save_dcp_ref);
             return del;
@@ -292,9 +287,13 @@ typedef struct disciplines_linkedlist {
         bool empty(void){
             return (_size == 0 || _head == NULL);
         }
+        bool exists(Discipline* discipline){
+            return (indexOf(discipline) != -1);
+        }
         struct discipline_node* node(void){
             return this->_head;
         }
+
 
 
 } DisciplineList;

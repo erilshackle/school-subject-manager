@@ -45,7 +45,7 @@ using namespace concolor;
 
 /// MENU
 void menu_mainMenu(class Student&student);
-void menu_student(class Student&);
+void menu_student(Student&);
 void menu_evaluations(class Course*);
 void menu_subjects(class Course*);
 void menu_settings(class Student*);
@@ -308,13 +308,12 @@ void menu_mainMenu(class Student& student)
     return;
 }
 
-void menu_student(class Student& student)
+void menu_student(Student& student)
 {
     int opt, in_date[3];
     int long in_code;
-    bool savedata = false;
+    bool savedata = false, refreshonce = true;
     string in_str;
-
     ssm_applyTheme(ssm, th_secnd, false);
 
     do{
@@ -327,8 +326,9 @@ void menu_student(class Student& student)
              <<setw(14) << "Codigo:" <<student.getCode() << '\n'
              <<setw(14) << "Idade:" << student.getAge()<< " anos\t" << '{'<< student.getBirthdate()<<'}' << '\n'
              <<setw(14) << "Curso:" << student.getCourse(true)<< " letivo" << '\n'
-             <<setw(14) << "Media Actual:" <<  (int)ceil( student.getFinalGrade() )
+             <<setw(14) << "Media Actual:" <<  (int)ceil( student.getFinalGrade(refreshonce) )
         <<endl;
+        refreshonce = false;
         Cor>>off;
         fillch('-');
         cout << SELECTABLE << "Informacoes do Curso " << ssm->themecolor(th_input) << ">>" >> Color << '\n'
@@ -336,9 +336,9 @@ void menu_student(class Student& student)
              << SELECTABLE << "Alterar Codigo" << ssm->themecolor(th_warn) << "!" >> Color << '\n'
              << SELECTABLE << "Definir Data de Nascimento\n"
              << SELECTABLE << "Minha Lista de Disciplinas\n"
+             << SELECTABLE << "Exportar Minha Agenda e Notas" << ssm->themecolor(th_hint) << "/>" >> Color << '\n'
              << SELECTABLE << "(X) "<<(savedata?"Salvar & ":"") <<"Voltar";
-        opt = optionSelector(8,6);
-
+        opt = optionSelector(8,7);
         switch(opt){
             case 0:{
                 submenu_course(&(student.course()));
@@ -397,6 +397,20 @@ void menu_student(class Student& student)
                 BC--;
                 break;
             }
+            case 5:{    // exportar agenda
+                if(export_agenda(&student.course())){
+                    alertOnSuccess("Agenda Exportada\n\n");
+                } else {
+                    alertOnError("Erro ao exportar Agenda\n\n");
+                }
+                if(export_evaluation(&(student.course()))){
+                    alertOnSuccess("Notas Exportada\n");
+                } else {
+                    alertOnError("Erro ao exportar Notas\n");
+                }
+                PAUSESCREEN;
+                break;
+            }
         }
     } while (opt != ESCAPED);
     if(savedata){
@@ -431,7 +445,7 @@ void menu_evaluations(class Course* course)
 
     printDiscilineListOf(*course);
     opt = optionSelector(8, (course->hasDiscipline() ? course->getNumDisciplines() : 1 ) , !course->hasDiscipline());
-    course->discipline(opt);
+    //course->discipline(opt);
     if(opt != ESCAPED){
         in_dscp = course->discipline(opt);
         if(in_dscp != NULL){
@@ -609,6 +623,7 @@ void menu_settings(class Student* student)
     int opt, opt2;
     string in_str;
     bool savedata = false;
+    Discipline* in_dscp = NULL;
     ssm_applyTheme(ssm, th_main, false);
 
     do{
@@ -622,11 +637,10 @@ void menu_settings(class Student* student)
              << SELECTABLE << "Escolher Tema\n"
              << SELECTABLE << "Verificar Atualizacoes\n"
              << SELECTABLE << "Dados e Configuracos\n"
-             << SELECTABLE << "Ajudas\n"
              << SELECTABLE << "(X) "<<(savedata?"Salvar & ":"") <<"Voltar"
              << endl;
 
-        opt = optionSelector(4,6);
+        opt = optionSelector(4,5);
         //opt = optionMouseSelector(6,6);
 
         switch(opt){
@@ -669,7 +683,73 @@ void menu_settings(class Student* student)
                 break;
             }
             case 3:{    // dados e configuracoes
+                do{
+                    CLEARSCREEN;
+                    heading("DADOS E CONFIGURACOES");
+                    cout << left;
+                    cout << SELECTABLE << "Salvar todos os dados"<<'\n';
+                    cout << SELECTABLE << "Exportar Agenda " << ssm->themecolor(th_hint) << "/> (Desktop)" >> Color <<'\n';
+                    cout << SELECTABLE << "Exportar Disciplina " << ssm->themecolor(th_hint) << "/> (Docuemtns)" >> Color <<'\n';
+                    cout << SELECTABLE << "Exportar Notas " << ssm->themecolor(th_hint) << "/> (Desktop)" >> Color <<'\n';
+                    cout << SELECTABLE << "(X) Retornar";
+                    opt2 = optionSelector(2,5);
 
+                    switch(opt2){
+
+                        case 0:{
+                            if(ssm->atheme == 1)    Cor >> ssm->theme(th_input);
+                            else                    Cor >> ssm->theme(th_success);
+                            cout << "Guardando os dados";
+                            SSM_SAVE(ssm);
+                            cout.put('.'); SLEEP(250);
+                            student->course().Save();
+                            student->course().SaveDisciplines();
+                            cout.put('.'); SLEEP(250);
+                            student->Save();
+                            cout.put('.'); SLEEP( 250);
+                            cout << " pronto!";
+                            Cor >> off;
+                            break;
+                        }
+                        case 1:{
+                            if(export_agenda(&(student->course()))){
+                                alertOnSuccess("Agenda Exportada");
+                            } else {
+                                alertOnError("Erro ao exportar");
+                            }
+                            SLEEP(2000);
+                            break;
+                        }
+                        case 2:{
+                            CLEARSCREEN;
+                            heading("ESCOLHA A DISCIPLINA PARA EXPORTAR");
+                            printDiscilineListOf(student->course());
+                            opt = optionSelector(2, (student->course().hasDiscipline() ? student->course().getNumDisciplines() : 1 ) , !student->course().hasDiscipline());
+                            if(opt != ESCAPED){
+                                in_dscp = student->course().discipline(opt);
+                                if(in_dscp != NULL){
+                                    if(export_subject(in_dscp,CSIDL_PERSONAL,false)){
+                                        alertOnSuccess("Disciplina Exportada");
+                                    } else {
+                                        alertOnError("Erro na exportacao");
+                                    }
+                                } else alertOnError("Erro: Disciplina Invalida");
+                            }
+                            SLEEP(2000);
+                            break;
+                        }
+                        case 3:{
+                            if(export_evaluation(&(student->course()))){
+                                alertOnSuccess("Notas Exportada");
+                            } else {
+                                alertOnError("Erro ao exportar");
+                            }
+                            SLEEP(2000);
+                            break;
+                        }
+                    }
+                }while(opt2 != ESCAPED);
+                SLEEP(500);
                 break;
             }
             case 4:{    // Ajuda
@@ -922,7 +1002,7 @@ void submenu_manageSubjects(class Discipline* discipline, Course& course)
              << SELECTABLE << "Alterar Semestre da Disciplina" << '\n'
              << SELECTABLE << "Definir Requisitos para aprovacao" << '\n'
              << SELECTABLE << ssm->themecolor(th_warn) << ( is_fullscheduled ?
-                            "Arquivar esta disciplina (marcar como concluida) (ERRO)\n" : "\r") >> Color;
+                            "Arquivar esta disciplina (marcar como concluida)\n" : "\r") >> Color;
         cout << SELECTABLE << "(X) "<<(savedata?"Salvar & ":"") <<"Voltar";
 
         cout << "\n" << "";
@@ -1060,16 +1140,9 @@ void submenu_manageEvaluations(class Discipline* discipline)
 
     EvaluationType in_etype = Generic;
     int in_date[3] = {0,0,0};
-    float in_per100 = 0, in_req = 0;
-    double securityGrade=0;
-    int efforts=0;
+    float in_per100 = 0;
     bool savedata = false;
-    float req, nf;
-    int perc_left;
     do{
-        req = discipline->getFinalGradeRequired(),
-        nf = discipline->getEvalsGradeAverage(true);
-        perc_left = 100-discipline->getEvalsStatus();
         CLEARSCREEN;
         heading(BC());
     // show table of evaluation overview
@@ -1175,14 +1248,13 @@ void submenu_manageEvaluations(class Discipline* discipline)
         case 2:{     // Detalhes
 
             clearScreen_(6);
-            cout << ssm->themecolor(th_hint)
-                 << "Nota Final Atual:     " << discipline->getEvalsGradeAverage() << '\n'
-                 << "Nota Final Requerida: " << discipline->getFinalGradeRequired() << '\n'
-                 << "Estado de Progresso:  " << discipline->getStatusProgress() << '\n'
-                 << "Estado da Disciplina: " << discipline->getStatus() << '\n'
-//                 << "Recomendacoes para passar" << '\n'
-//                 << "* Nao tenha uma nota inferior a " << setprecision(1) << securityGrade << " na proxima avaliacao."
-                 >> Color;
+            Cor >> ssm->themecolor(th_hint);
+            cout << "Nota Final:           " << discipline->getEvalsGradeAverage() << '\n';
+            cout << "N.F. Requerida:       " << discipline->getFinalGradeRequired() << '\n';
+            cout << "Estado de Progresso:  " << discipline->getStatusProgress() << '\n';
+            cout << "Estado da Disciplina: " << discipline->getStatus() << '\n';
+            cout << "Avisos:               " << "Nao temos nenhuma recomendacao!"<< '\n';
+            Cor >> off;
             PAUSESCREEN;
             break;
         }
@@ -1203,12 +1275,12 @@ bool submenu_modifyEvaluation(class Discipline* discipline, int index_eval)
     bool savedata = false;
 
     clearScreen_(3+discipline->getNumOfEvals());
-    cout << SELECTABLE; colour("Atribuir Nota\n")       >> (eval->isDoable() ? ssm->themecolor(th_input) : ssm->themecolor(th_warn));
+    cout << SELECTABLE; colour("Atribuir Nota\n")       >> (eval->isDoable() ? (eval->isDone() ? ssm->themecolor(th_success) : ssm->themecolor(th_input)) : ssm->themecolor(th_invalid));
     cout << SELECTABLE; colour("Alterar Percentagem\n") >> (eval->isExam() ? ssm->themecolor(th_invalid) : concolor::current_colors());
     cout << SELECTABLE; colour("Alterar Data\n")        >> (eval->isTypeOf(Others) ? ssm->themecolor(th_invalid) : concolor::current_colors());
     cout << SELECTABLE << "Eliminar Avaliacao\n";
     cout << SELECTABLE << "Voltar (ESC)";
-    conprint(getEvalName(eval->getType()) + " -- " + eval->getTimeStatus() + " " + getTimeLeftTo(eval->getDateTime()) ).atPos(24,3);
+    conprint(getEvalName(eval->getType()) + " -- " + eval->getTimeStatus() + ", " + getTimeLeftTo(eval->getDateTime()) ).atPos(24,3);
     opt = optionSelector(3+discipline->getNumOfEvals(),5);
 
     switch(opt){
@@ -1304,15 +1376,21 @@ void show_studentAgenda(Course* disciplines)
     Evaluation* eval = NULL;
     int i = 0, events = 0;
     // next event
-    time_t time1 = 0, time2 = 0, now = time(NULL);
+    time_t time1 = 0, time2 = 0;
     Discipline* nextSbj=NULL;
     Evaluation* nextEval=NULL;
-    tm* timing = localtime(&now);
-    string time = asctime(timing);//put_time(timing,"%a, %d %b");
-    time.pop_back();
-//    cout << "Aqui voce pode ver os eventos futuros a serem realizados"
+    // get today time
+    stringstream sstime;
+    time_t const now_c = time(NULL);
+    sstime << right << setw(59-12) << put_time(localtime(&now_c), "%A, %d %b %Y");
+    string myTime = sstime.str();
+    //transTime >> myTime;
 
-    heading(BC() +"\t\t\t"+ time);
+    heading(BC());
+    Cor >> ssm->themecolor(th_hint);
+    conprint("hoje: " + myTime).atPos(0,25);
+    Cor >> off;
+    subject = disciplines->discipline(i);
     while( (subject = disciplines->discipline(i)) != NULL ){
         for(int k = 0; k < subject->getNumOfEvals(); k++){
             eval = subject->evals(k);
@@ -1325,7 +1403,7 @@ void show_studentAgenda(Course* disciplines)
                     nextSbj = subject;
                 }
                 // show data
-                /// AED       >> Trabalho (20%)   - Daqui ha 17 dias
+                /// AED       | Trabalho (20%)   | Daqui ha 17 dias
                 cout << std::left
                 << setw(MAXTITLESTR) << subject->getTitle() << " | "
                 << setw(21) << (getEvalName(eval->getType())+" ("+to_string(eval->getPercentageInt())+"%)") << " | "

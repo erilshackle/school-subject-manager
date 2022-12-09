@@ -20,7 +20,7 @@
 #endif
 
 #include <shlobj.h>
-#pragma comment(lib, "shell32.lib")
+//#pragma comment(lib, "shell32.lib")
 
 #include <student.h>
 #include <course.h>
@@ -43,6 +43,12 @@
 // constants
 #define MAXSMTHEMES 3
 #define SSMTHCOLORS 8
+
+#ifdef WIN32
+#define __DELSSMDATA "RD /S /Q /F evals subjects user && DEL /F /Q *.*"
+#else
+#define __DELSSMDATA "rem -r -f .*."
+#endif // WIN32
 
 namespace SM
 {
@@ -94,6 +100,8 @@ void ssm_applyTheme(SSM* _ssm, int theme,  bool clearscreen = true);
 // Subjects Functions
 int subjectsListing(Course*, bool, int=0, int=17); /**@return num of disciplines */
 bool export_subject(Discipline*,INT=CSIDL_PERSONAL, bool=false);
+bool export_agenda(Course*,INT=CSIDL_DESKTOP);
+bool export_evaluation(Course*,INT=CSIDL_DESKTOP);
 
 // functional
 bool DirectoryExists_W(LPCTSTR szPath);

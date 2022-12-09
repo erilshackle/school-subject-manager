@@ -55,7 +55,7 @@ class Evaluation
         tm getDate();
         time_t getDateTime();
         double getDateTimeLeft();
-        std::string getDateString();
+        std::string getDateString(bool=false);
         bool isTypeOf(EvaluationType);
         bool isExam();
         const bool isDoable();
@@ -316,7 +316,7 @@ class EvalsManager
             for(int i = 0; i < getNumOfEvals();i++){    // general
                 eval = _evals[i];
                 // check next
-                if(!eval->isDone() && !eval->isDoable()){
+                if(!eval->isTypeOf(Others) && !eval->isDone() && !eval->isDoable()){
                     time2 = eval->getDateTime();
                     if(time2 < time1 || time1 == 0){
                         time1 = time2;
@@ -342,6 +342,7 @@ class EvalsManager
                 _exam = new_eval;
             } else return false;
             *_num_of_evals += 1;
+            refresh__();
             return true;
         }
         bool schedule(eval_t type, int perc, int date[3]){
@@ -366,6 +367,7 @@ class EvalsManager
             _evals[(*_num_of_evals)] = new_eval;
             *_scheduling += perc;
             *_num_of_evals += 1;
+            refresh__();
             return true;
         }
         bool evaluate(int index, double grade){

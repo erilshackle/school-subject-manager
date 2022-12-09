@@ -61,8 +61,7 @@ bool Discipline::isCompleted()
 }
 bool Discipline::isArchived(bool refresh)
 {
-    //! CRASH
-    if(refresh){
+    if(refresh && _course != NULL){
         __archived_ = _course->isArchivedDiscipline(this);
     }
     return __archived_;
@@ -98,34 +97,67 @@ std::string Discipline::getStatusProgress()
 {
     string  status;
     bool    finished = (getEvalsStatus() == 100);
-    float perc_left = (100-getEvalsStatus()), neededGrade=0; // (req-NF)/PERCLEFT;
-//    double estimatedGrade = ( getEvalsGradeAverage(true) * ( (getEvalsStatus()/100.0) ) );
-
-    if(perc_left != 0){
-        neededGrade = getFinalGradeRequired() - getEvalsGradeAverage();
-        neededGrade = neededGrade / perc_left;
+    double balance = 0;
+    float current_mean=0, current_perc=0;
+    // loop for calc the status balance
+    for(int i = 0; i < getNumOfEvals(); i++){
+        if(evals(i)->isDone()){
+            current_perc += evals(i)->getPercentageInt();
+            current_mean += evals(i)->getGradeWeighted();
+        }
     }
 
-    if(finished && getEvalsGradeAverage() < getFinalGradeRequired() && (!isExamDone() && hasExamScheduled()))
+    balance = current_mean - (BASE_GRADE-getFinalGradeRequired()) * ((current_perc)/100.00);
+
+    if(finished && getEvalsGradeAverage() < getFinalGradeRequired() && (hasExamScheduled() && !isExamDone()))
     {
         status = "exame!";
     }
-    else if(finished)
+    else if(finished && isEvalsAllDone())
     {
         status = "completo!";
     }
-    else if(neededGrade <= getFinalGradeRequired())
+    else if(getEvalsStatus() != 0 && balance >= 1){
+        status = "bem";
+    }
+    else if(getEvalsStatus() != 0 && balance <= -1  ){
+        status = "mal";
+    }
+    else if(getEvalsStatus() != 0 && balance < 0  ){
+        status = "insuf";
+    }
+    else if(getEvalsStatus() != 0){
+        status = "suf";
+    } else {
+        status = "-";
+    }
+
+    /*
+    else if(getEvalsStatus() != 0 && balance >=  getFinalGradeRequired()*((current_perc)/100.00))
+    {
+        status = "muito bem";
+    }
+    else if(getEvalsStatus() != 0 && balance >= ( getFinalGradeRequired() * (0.6 + getFinalGradeRequired()/BASE_GRADE) ) )
     {
         status = "bem";
     }
-    else if(neededGrade > getFinalGradeRequired())
+    else if(getEvalsStatus() != 0 && balance >= ( getFinalGradeRequired() * (0.4 + getFinalGradeRequired()/BASE_GRADE) ) )
+    {
+        status = "normal";
+    }
+    else if(getEvalsStatus() != 0 && ( getFinalGradeRequired() * (0.2 + getFinalGradeRequired()/BASE_GRADE) ) )
     {
         status = "mal";
     }
+    else if(getEvalsStatus() != 0 )
+    {
+        status = "muito mal";
+    }
     else
     {
-        status = "em avaliacao";
+        status = "-";
     }
+    */
     // passed failed recourse doing well doing bad
     return status;
 }
@@ -231,6 +263,7 @@ bool Discipline::hasExamScheduled()
 }
 bool Discipline::isExamDone()
 {
+    if(!hasExamScheduled()) return false;
     return _evals->getExam()->isDone();
 }
 bool Discipline::isEvalsAllDone()
@@ -385,6 +418,7 @@ int Discipline::LoadData(std::string filename)
                 ((filename.empty()) ? _datafile : filename.c_str()));
 
     EvalsManager* hold_eval = _evals;
+    Course* hold_course = _course;
 
     ifstream dcpfile(filepath, ios::binary);
     if(dcpfile.is_open()){
@@ -392,6 +426,7 @@ int Discipline::LoadData(std::string filename)
         //dcpfile.read((char*)_evals, sizeof(EvalsManager));
         dcpfile.close();
     }
+    _course = hold_course;
     _evals = hold_eval;
     ret += (int) LoadEvaluations();
     return ret;
